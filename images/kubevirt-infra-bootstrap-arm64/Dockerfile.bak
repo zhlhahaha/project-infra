@@ -1,0 +1,38 @@
+FROM bootstrap-arm64:latest
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --no-upgrade \
+        ansible \
+        intltool \
+        osinfo-db-tools \
+        libosinfo-1.0 \
+        expect python-gi \
+        python3-yaml \
+        make \
+        rsync \
+        git \
+        libssl-dev \
+        libpython-dev \
+        python3 \
+        python3-pip \
+        && rm -rf /var/lib/apt/lists/*
+RUN export GOPATH=/go \
+    && export GOROOT=/usr/local/go \
+    && export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH" \
+    && wget https://golang.org/dl/go1.14.7.linux-arm64.tar.gz \
+    && tar -C /usr/local -xzf go1.14.7.linux-arm64.tar.gz \
+    && mkdir /go
+
+RUN export KUSTOMIZE_DIR=/go/src/kustomize \
+    && mkdir -p $KUSTOMIZE_DIR \
+    && cd $KUSTOMIZE_DIR \
+    && git clone https://github.com/kubernetes-sigs/kustomize \
+    && cd kustomize \
+    && git checkout release-kustomize-v3.5 \
+    && cd kustomize \
+    && go build \
+    && cp ./kustomize /usr/bin/
+
+RUN cd / \
+    && rm -rf /go \
+    && rm -rf /usr/local/go

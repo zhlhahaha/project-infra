@@ -3,7 +3,7 @@
 
 main() {
     local build_only
-    while getopts "bh" opt; do
+    while getopts "bha" opt; do
         case "$opt" in
             b)
                 build_only=true
@@ -22,6 +22,8 @@ main() {
     local build_target="${1:?}"
     local registry="${2:?}"
     local registry_org="${3:?}"
+    local image_name="${4:?}"
+    local build_arg="${5}"
     local full_image_name image_tag
 
     image_tag="$(get_image_tag)"
@@ -29,7 +31,7 @@ main() {
         get_full_image_name \
             "$registry" \
             "$registry_org" \
-            "${build_target##*/}" \
+            "$image_name" \
             "$image_tag"
     )"
 
@@ -45,9 +47,9 @@ main() {
 help() {
     cat <<EOF
     Usage:
-        ./publish_image.sh [OPTIONS] BUILD_TARGET REGISTRY REGISTRY_ORG
+        ./publish_image.sh [OPTIONS] BUILD_TARGET REGISTRY REGISTRY_ORG IMAGE_NAME BUILD_ARG
 
-    Build and publish infra images.
+    Build and publish infra images. BUILD_ARG is optional.
 
     OPTIONS
         -h  Show this help message and exit.
@@ -64,7 +66,7 @@ get_image_tag() {
 
 build_image() {
     local image_name="${1:?}"
-    docker build . -t "$image_name"
+    docker build . -t "$image_name" $build_arg
 }
 
 publish_image() {

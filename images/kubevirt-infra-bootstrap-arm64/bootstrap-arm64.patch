@@ -1,0 +1,92 @@
+diff --git a/images/bootstrap/Dockerfile b/images/bootstrap/Dockerfile
+index a98e10f8ca..43b1ee92a8 100644
+--- a/images/bootstrap/Dockerfile
++++ b/images/bootstrap/Dockerfile
+@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
+     xz-utils \
+     zip \
+     zlib1g-dev \
++    gnupg2 \
+     && rm -rf /var/lib/apt/lists/* \
+     && python -m pip install --upgrade pip setuptools wheel
+ 
+@@ -56,18 +57,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
+ ENV PATH=/google-cloud-sdk/bin:/workspace:${PATH} \
+     CLOUDSDK_CORE_DISABLE_PROMPTS=1
+ 
+-RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.tar.gz && \
+-    tar xzf google-cloud-sdk.tar.gz -C / && \
+-    rm google-cloud-sdk.tar.gz && \
+-    /google-cloud-sdk/install.sh \
+-        --disable-installation-options \
+-        --bash-completion=false \
+-        --path-update=false \
+-        --usage-reporting=false && \
+-    gcloud components install alpha beta kubectl && \
++RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
++    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
++    apt-get update && apt-get install -y google-cloud-sdk && \
++    apt-get install -y google-cloud-sdk google-cloud-sdk kubectl && \
+     gcloud info | tee /workspace/gcloud-info.txt
+ 
+-
+ #
+ # BEGIN: DOCKER IN DOCKER SETUP
+ #
+@@ -88,7 +83,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
+ RUN curl -fsSL https://download.docker.com/linux/$(. /etc/os-release; echo "$ID")/gpg \
+     | apt-key add - && \
+     add-apt-repository \
+-    "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
++    "deb [arch=arm64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
+     $(lsb_release -cs) stable"
+ 
+ # Install Docker
+@@ -117,6 +112,47 @@ RUN mkdir /docker-graph
+ # END: DOCKER IN DOCKER SETUP
+ #
+ 
++# Install Package for kubevirt-bootstrap
++RUN apt-get update \
++    && apt-get install -y --no-install-recommends --no-upgrade \
++        ansible \
++        intltool \
++        osinfo-db-tools \
++        libosinfo-1.0 \
++        expect python-gi \
++        python3-yaml \
++        make \
++        rsync \
++        git \
++        libssl-dev \
++        libpython-dev \
++        python3 \
++        python3-pip \
++        && rm -rf /var/lib/apt/lists/*
++
++# Install golang for compile kustomize
++RUN export GOPATH=/go \
++    && export GOROOT=/usr/local/go \
++    && export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH" \
++    && wget https://golang.org/dl/go1.14.7.linux-arm64.tar.gz \
++    && tar -C /usr/local -xzf go1.14.7.linux-arm64.tar.gz \
++    && mkdir /go
++
++# Compile kustomize
++RUN export KUSTOMIZE_DIR=/go/src/kustomize \
++    && mkdir -p $KUSTOMIZE_DIR \
++    && cd $KUSTOMIZE_DIR \
++    && git clone https://github.com/kubernetes-sigs/kustomize \
++    && cd kustomize \
++    && git checkout release-kustomize-v3.5 \
++    && cd kustomize \
++    && go build \
++    && cp ./kustomize /usr/bin/
++
++# cleanup environment
++RUN cd / \
++    && rm -rf /go \
++    && rm -rf /usr/local/go
+ 
+ # note the runner is also responsible for making docker in docker function if
+ # env DOCKER_IN_DOCKER_ENABLED is set and similarly responsible for generating
